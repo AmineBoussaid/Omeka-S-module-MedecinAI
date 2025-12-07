@@ -1,0 +1,144 @@
+<?php
+$escape = $this->plugin('escapeHtml');
+$this->htmlElement('body')->appendAttribute('class', 'medecin-ai');
+$this->headTitle($this->translate('Médecin AI - Recommandations Médicales'));
+?>
+
+<div id="page-actions">
+    <a href="<?php echo $this->url('admin/default', ['controller' => 'module', 'action' => 'configure'], ['query' => ['id' => 'MedecinAI']]); ?>" class="button">
+        <?php echo $this->translate('Configurer le module'); ?>
+    </a>
+</div>
+
+<?php echo $this->pageTitle($this->translate('Médecin AI - Recommandations Médicales'), 1, $this->translate('Générer des recommandations médicales à partir des transcriptions vocales')); ?>
+
+<div class="medecin-ai-container">
+    <?php if (!$ollamaEnabled): ?>
+        <div class="messages">
+            <div class="error">
+                <p><?php echo $this->translate("L'intégration Ollama n'est pas activée. Veuillez l'activer dans les paramètres du module."); ?></p>
+                <p><a href="<?php echo $this->url('admin/default', ['controller' => 'module', 'action' => 'configure'], ['query' => ['id' => 'MedecinAI']]); ?>"><?php echo $this->translate('Configurer maintenant'); ?></a></p>
+            </div>
+        </div>
+    <?php else: ?>
+        <div class="info-panel" style="background: #f0f8ff; padding: 15px; margin-bottom: 20px; border-left: 4px solid #0066cc; border-radius: 4px;">
+            <h3 style="margin-top: 0;">ℹ️ Configuration actuelle</h3>
+            <p><strong>Modèle:</strong> <?php echo $escape($ollamaModel); ?></p>
+            <p><strong>Langue:</strong> <?php echo $escape($ollamaLanguage); ?></p>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($error): ?>
+        <div class="messages">
+            <div class="error">
+                <h3><?php echo $this->translate('Erreur'); ?></h3>
+                <p><?php echo $escape($error); ?></p>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <form method="post" class="medecin-ai-form">
+        <fieldset>
+            <legend><?php echo $this->translate('Saisir une transcription vocale'); ?></legend>
+            
+            <div class="field">
+                <div class="field-meta">
+                    <label for="observation-select"><?php echo $this->translate('Ou sélectionner une observation existante'); ?></label>
+                </div>
+                <div class="field-inputs">
+                    <select id="observation-select" class="chosen-select">
+                        <option value=""><?php echo $this->translate('-- Choisir une observation --'); ?></option>
+                        <?php if (isset($observations) && is_array($observations)): ?>
+                            <?php foreach ($observations as $obs): ?>
+                                <?php 
+                                    try {
+                                        $title = $obs->displayTitle();
+                                    } catch (Exception $e) {
+                                        $title = 'Observation #' . $obs->id();
+                                    }
+                                ?>
+                                <option value="" data-title="<?php echo $escape($title); ?>">
+                                    <?php echo $escape($title); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                    <p class="explanation"><?php echo $this->translate('Sélectionnez une observation pour charger automatiquement sa transcription.'); ?></p>
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="field-meta">
+                    <label for="transcription"><?php echo $this->translate('Transcription vocale du patient'); ?></label>
+                </div>
+                <div class="field-inputs">
+                    <textarea name="transcription" id="transcription" rows="10" required style="width: 100%; font-family: monospace;" placeholder="<?php echo $this->translate('Entrez ou collez la transcription vocale du patient ici...'); ?>"></textarea>
+                    <p class="explanation"><?php echo $this->translate('La transcription des symptômes et observations du patient.'); ?></p>
+                </div>
+            </div>
+        </fieldset>
+
+        <div class="field">
+            <button type="submit" class="button" <?php echo $ollamaEnabled ? '' : 'disabled'; ?>>
+                <?php echo $this->translate('🤖 Générer les recommandations'); ?>
+            </button>
+        </div>
+    </form>
+
+    <?php if ($recommendation): ?>
+        <div class="recommendation-result" style="margin-top: 30px; padding: 20px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px;">
+            <h2 style="color: #0066cc; margin-top: 0;">📋 <?php echo $this->translate('Recommandations médicales générées'); ?></h2>
+            <div style="background: white; padding: 15px; border-radius: 4px; line-height: 1.6; white-space: pre-wrap; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                <?php echo $escape($recommendation); ?>
+            </div>
+            <p style="margin-top: 15px; font-size: 0.9em; color: #666;">
+                <em><?php echo $this->translate('⚠️ Attention: Ces recommandations sont générées par IA et doivent être vérifiées par un professionnel de santé.'); ?></em>
+            </p>
+        </div>
+    <?php endif; ?>
+</div>
+
+<style>
+.medecin-ai-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.medecin-ai-form fieldset {
+    border: 1px solid #ddd;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.medecin-ai-form legend {
+    font-weight: bold;
+    color: #0066cc;
+    padding: 0 10px;
+}
+
+.recommendation-result {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const select = document.getElementById('observation-select');
+    const textarea = document.getElementById('transcription');
+    
+    if (select && textarea) {
+        select.addEventListener('change', function() {
+            const selectedValue = this.value;
+            if (selectedValue) {
+                textarea.value = selectedValue;
+            }
+        });
+    }
+});
+</script>
